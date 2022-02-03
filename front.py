@@ -11,8 +11,6 @@ token = lines[0]
 print("Token: {}".format(token))
 ip = '1.1.1.1' #Any big cooperation IP would do
 
-dailyMessageSend = False
-daylyFailureCount = 0
 currentIssue = []
 activity = discord.Game(name="DOES MY INTERNET WORK?", type=3)
 targetChannelID = 935630315488182282
@@ -28,11 +26,9 @@ async def on_ready():
 
 async def pinging(channel):
     global ip
-    global dailyMessageSend
     global currentIssue
     print(f"Start pinging {ip}")
     while(True):
-        await checkDailymessage(channel)
         result = ping(ip, verbose=False, count=1)
         now = str(datetime.datetime.now().time())[:-7]
         output = str(result).partition('\n')[0]
@@ -43,9 +39,7 @@ async def pinging(channel):
         time.sleep(5)
 
 async def failure(channel, now, output):
-    global daylyFailureCount
     text = '[FAILURE] {} - {}'.format(now, output)
-    daylyFailureCount += 1
     print(text)
     currentIssue.append(now)
 
@@ -57,23 +51,6 @@ async def success(channel, now, output):
         sendSuccess = await sendToDiscord(channel, message)
         if(sendSuccess):
             currentIssue = []
-
-async def checkDailymessage(channel):
-    global dailyMessageSend
-    global daylyFailureCount
-    hour = datetime.datetime.now().hour
-    if (dailyMessageSend):
-        if 20<hour<21:
-            print("Reset dailyMessageSend")
-            dailyMessageSend=False
-    else:
-        if hour == 22:
-            dailyMessageSend=True
-            if(daylyFailureCount==0):
-                print("There were no failures today")
-            else:
-                await sendToDiscord(channel, f"There were {daylyFailureCount} failures today")
-                daylyFailureCount = 0
 
 async def sendToDiscord(channel, message):
     global currentIssue

@@ -47,7 +47,10 @@ async def success(channel, now, output):
     global currentIssue
     print(f'[SUCCESS] {now} - {output}')
     if(currentIssue):
-        message = '`ISSUE - {} to {}`'.format(currentIssue[0], currentIssue[-1])
+        if currentIssue[-1] == currentIssue[0]:
+            message = '`ISSUE - {}`'.format(currentIssue[0])
+        else:
+            message = '`ISSUE - {} to {}`'.format(currentIssue[0], currentIssue[-1])
         sendSuccess = await sendToDiscord(channel, message)
         if(sendSuccess):
             currentIssue = []

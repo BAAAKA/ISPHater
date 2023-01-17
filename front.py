@@ -1,68 +1,79 @@
-import discord
-from pythonping import ping
+import socket
 import time
 import datetime
+import plotly.express as px
+from datetime import datetime, timedelta
+import pandas as pd
 
-# GetTokenOfDiscordBot
-with open('token.txt','r') as f:
-    lines = f.readlines()
-token = lines[0]
 
-print("Token: {}".format(token))
-ip = '1.1.1.1' #Any big cooperation IP would do
+def main():
+    today = []
+    start = datetime.now()
+    stop = start + timedelta(hours = 24)
+    print(f"Starting now {start} until tmrw {stop}")
+    remainingSeconds = 1000
 
-currentIssue = []
-activity = discord.Game(name="DOES MY INTERNET WORK?", type=3)
-targetChannelID = 935630315488182282
+    while remainingSeconds>100:
+        print(remainingSeconds)
+        checks = 60
+        failures = testMinute(checks)
+        failurePercent = failures/checks
+        now = datetime.now()
+        remainingSeconds = (stop - now).total_seconds()
+        now_edited = now.strftime("%H:%M")
+        text = f"{now_edited} - Last minute we had {failures} failures, {failurePercent} failure rate"
+        print(text)
+        writeToFile(text)
+        today.append((now, failurePercent))
 
-client = discord.Client()
-@client.event
-async def on_ready():
-    channel = client.get_channel(targetChannelID)
-    activity = discord.Game(name="DOES MY INTERNET WORK?", type=3)
-    await client.change_presence(status=discord.Status.online, activity=activity)
-    print("[INFO] ISP HATER {} is ready!".format(client.user))
-    await pinging(channel)
+    createChart(today)
 
-async def pinging(channel):
-    global ip
-    global currentIssue
-    print(f"Start pinging {ip}")
-    while(True):
-        result = ping(ip, verbose=False, count=1)
-        now = str(datetime.datetime.now().time())[:-7]
-        output = str(result).partition('\n')[0]
-        if(result.success()):
-            await success(channel, now, output)
+
+def testMinute(seconds, hostname = "1.1.1.1"):
+    failures = 0
+    for i in range(seconds):
+        connection = is_connected(hostname)
+        if connection:
+            #print("Internet is working")
+            pass
         else:
-            await failure(channel, now, output)
-        time.sleep(5)
+            print("Internet is not working")
+            failures+=1
+        time.sleep(1)
+    return failures
 
-async def failure(channel, now, output):
-    text = '[FAILURE] {} - {}'.format(now, output)
-    print(text)
-    currentIssue.append(now)
+def is_connected(hostname):
+  try:
+    # a DNS listening
+    host = socket.gethostbyname(hostname)
+    # connect to the host -- tells us if the host is actually reachable
+    s = socket.create_connection((host, 80), 2)
+    s.close()
+    return True
+  except Exception:
+     pass
+  return False
 
-async def success(channel, now, output):
-    global currentIssue
-    print(f'[SUCCESS] {now} - {output}')
-    if(currentIssue):
-        if currentIssue[-1] == currentIssue[0]:
-            message = '`ISSUE - {}`'.format(currentIssue[0])
-        else:
-            message = '`ISSUE - {} to {}`'.format(currentIssue[0], currentIssue[-1])
-        sendSuccess = await sendToDiscord(channel, message)
-        if(sendSuccess):
-            currentIssue = []
+def writeToFile(text, situation = "None"):
+    now = datetime.now()
+    now_edited = now.strftime("%Y%m%d_%H%M")
+    f = open(f"log/{now_edited}_ISPHater.log", "a")
+    f.write(text + "\n")
+    f.close()
 
-async def sendToDiscord(channel, message):
-    global currentIssue
-    try:
-        await channel.send(message)
-        return True
-    except Exception as e:
-        print("[EXCEPTION] couldnt send message to discord: {}".format(e))
-        return False
+def createChart(today):
+    now = datetime.now()
+    now_edited = now.strftime("%Y%m%d_%H%M")
+    now_title= now.strftime("%Y-%m-%d %H:%M")
 
-client.run(token)
+    df = pd.DataFrame(today, columns =['Time', 'Failures'])
+    print(df)
+    title = f"Internet Connection Failure Rate (Intergga Arlesheim) <br><sup>{now_title} | ~1 check per second | 1.1.1.1</sup> "
+    fig = px.area(df, x="Time", y='Failures', title=title)
+    fig.update_layout(yaxis_range=[0,1], xaxis_title="Time", yaxis_title="Failure Rate",plot_bgcolor="white")
+    fig.write_image(f"img/{now_edited}_intergga.jpg", scale = 3)
+
+if __name__ == '__main__':
+    main()
+
 
